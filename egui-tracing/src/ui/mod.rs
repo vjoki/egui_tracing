@@ -136,10 +136,19 @@ impl Widget for Logs {
                                 continue;
                             }
                             if key.starts_with("log.") {
-                                log_message.push_str(&format!("\n {}: {}", key, value));
+                                log_message.push_str("\n ");
+                                log_message.push_str(key);
+                                log_message.push_str(": ");
+                                log_message.push_str(value);
                             } else {
-                                short_message.push_str(&format!(", {}: {}", key, value));
-                                complete_message.push_str(&format!("\n {}: {}", key, value));
+                                short_message.push_str(", ");
+                                short_message.push_str(key);
+                                short_message.push_str(": ");
+                                short_message.push_str(value);
+                                complete_message.push_str("\n ");
+                                complete_message.push_str(key);
+                                complete_message.push_str(": ");
+                                complete_message.push_str(value);
                             }
                         }
 
