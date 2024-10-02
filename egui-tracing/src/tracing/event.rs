@@ -9,7 +9,7 @@ use tracing::{Event, Metadata};
 pub struct CollectedEvent {
     pub target: String,
     pub level: tracing::Level,
-    pub fields: BTreeMap<String, String>,
+    pub fields: BTreeMap<&'static str, String>,
     pub time: DateTime<Local>,
 }
 
@@ -27,11 +27,10 @@ impl CollectedEvent {
     }
 }
 
-struct FieldVisitor<'a>(&'a mut BTreeMap<String, String>);
+struct FieldVisitor<'a>(&'a mut BTreeMap<&'static str, String>);
 
 impl<'a> Visit for FieldVisitor<'a> {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0
-            .insert(field.name().to_string(), format!("{:?}", value));
+        self.0.insert(field.name(), format!("{:?}", value));
     }
 }
