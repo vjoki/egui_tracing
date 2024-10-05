@@ -1,4 +1,6 @@
-use globset::Glob;
+use core::hash;
+
+use globset::{Glob, GlobSet};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 
@@ -17,10 +19,19 @@ pub struct LevelFilter {
     pub error: bool,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Hash)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TargetFilter {
     pub input: String,
     pub targets: Vec<Glob>,
+    #[serde(skip)]
+    pub glob: Option<GlobSet>,
+}
+
+impl hash::Hash for TargetFilter {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.input.hash(state);
+        self.targets.hash(state);
+    }
 }
 
 impl Default for LevelFilter {

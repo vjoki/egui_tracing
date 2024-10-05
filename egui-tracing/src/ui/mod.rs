@@ -2,9 +2,9 @@ mod color;
 mod components;
 mod state;
 
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
 
-use egui::{Label, Response, TextStyle, TextWrapMode, Widget};
+use egui::{Label, Response, TextStyle, TextWrapMode};
 use globset::GlobSetBuilder;
 
 use self::color::ToColor32;
@@ -23,41 +23,30 @@ use crate::tracing::CollectedEvent;
 
 pub struct Logs {
     collector: EventCollector,
+    state: RefCell<LogsState>,
 }
 
 impl Logs {
     #[must_use]
-    pub const fn new(collector: EventCollector) -> Self {
-        Self { collector }
+    pub fn new(collector: EventCollector) -> Self {
+        Self { collector, state: Default::default() }
     }
-}
 
-impl Widget for Logs {
-    fn ui(self, ui: &mut egui::Ui) -> Response {
-        let state = ui.memory_mut(|mem| {
-            let state_mem_id = ui.id();
-            mem.data
-                .get_temp_mut_or_insert_with(state_mem_id, || {
-                    Arc::new(Mutex::new(LogsState::default()))
-                })
-                .clone()
-        });
-        let mut state = state.lock().unwrap();
-
-        // TODO: cache the globset
-        let glob = {
+    fn refresh_globset(&self) {
+        let globs = self.state.borrow().target_filter.targets.clone();
+        self.state.borrow_mut().target_filter.glob.replace({
             let mut glob = GlobSetBuilder::new();
-            for target in state.target_filter.targets.clone() {
+            for target in globs {
                 glob.add(target);
             }
             glob.build().unwrap()
-        };
+        });
+    }
 
-        let filtered_events = self.collector.events()
-            .iter()
-            .filter(|event| state.level_filter.get(event.level) && !glob.is_match(&event.target))
-            .cloned()
-            .collect::<Vec<_>>();
+    pub fn show(&mut self, ui: &mut egui::Ui) -> Response {
+        if self.state.borrow().target_filter.glob.is_none() {
+            self.refresh_globset();
+        }
 
         let row_height = constants::SEPARATOR_SPACING
             + ui.style().text_styles.get(&TextStyle::Small).unwrap().size;
@@ -77,16 +66,20 @@ impl Widget for Logs {
                     .common_props(CommonProps::new().min_width(80.0))
                     .children(|ui| {
                         LevelMenuButton::default()
-                            .state(&mut state.level_filter)
+                            .state(&mut self.state.borrow_mut().level_filter)
                             .show(ui);
                     })
                     .show(ui);
                 TableHeader::default()
                     .common_props(CommonProps::new().min_width(120.0))
                     .children(|ui| {
-                        TargetMenuButton::default()
-                            .state(&mut state.target_filter)
+                        let changed = TargetMenuButton::default()
+                            .state(&mut self.state.borrow_mut().target_filter)
                             .show(ui);
+
+                        if changed {
+                            self.refresh_globset();
+                        }
                     })
                     .show(ui);
                 TableHeader::default()
@@ -132,7 +125,7 @@ impl Widget for Logs {
                         }
 
                         for (key, value) in &event.fields {
-                            if key == "message" {
+                            if *key == "message" {
                                 continue;
                             }
                             if key.starts_with("log.") {
@@ -160,6 +153,11 @@ impl Widget for Logs {
                     })
                     .show(ui);
             })
-            .show(ui, filtered_events.iter())
+            .show(ui, self.collector.events()
+                  .iter()
+                  .filter(|event| self.state.borrow().level_filter.get(event.level)
+                          && !self.state.borrow().target_filter.glob.as_ref().is_some_and(|g| g.is_match(&event.target)))
+                  .collect::<Vec<_>>()
+                  .into_iter())
     }
 }

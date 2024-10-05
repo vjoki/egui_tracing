@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::slice::Iter;
 
 use egui::{Response, Ui};
 
@@ -52,7 +51,7 @@ where
         self
     }
 
-    pub fn show(self, ui: &mut Ui, values: Iter<&Item>) -> Response {
+    pub fn show<'a>(self, ui: &mut Ui, values: impl ExactSizeIterator<Item=&'a Item>) -> Response where Item: 'a {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.horizontal(|ui| {

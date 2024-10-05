@@ -1,8 +1,8 @@
 use egui::Ui;
 use globset::Glob;
 
-use super::target_menu_item::TargetMenuItem;
 use crate::ui::state::TargetFilter;
+use crate::string::Ellipse;
 
 #[derive(Default)]
 pub struct TargetMenuButton<'a> {
@@ -15,8 +15,9 @@ impl<'a> TargetMenuButton<'a> {
         self
     }
 
-    pub fn show(self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui) -> bool {
         let state = self.state.unwrap();
+        let mut changed = false;
         ui.menu_button("Target", |ui| {
             ui.label("Target Filter");
 
@@ -34,17 +35,28 @@ impl<'a> TargetMenuButton<'a> {
                 || (input.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
             {
                 state.targets.push(Glob::new(&state.input).unwrap());
-                state.input = "".to_owned();
+                state.input.clear();
+                changed = true;
             }
 
-            for (i, target) in state.targets.clone().iter().enumerate() {
-                TargetMenuItem::default()
-                    .on_clicked(|| {
-                        state.targets.remove(i);
-                    })
-                    .target(target)
-                    .show(ui);
-            }
+            state.targets.retain(|target| {
+                ui.separator();
+                let resp = ui.horizontal(|ui| {
+                    {
+                        let pattern = target.glob();
+                        ui.label(pattern.truncate_graphemes(18))
+                            .on_hover_text(pattern);
+                    }
+
+                    ui.add_space(ui.available_width() - 43.0);
+                    if ui.button("Delete").clicked() {
+                        changed = true;
+                        false
+                    } else { true }
+                });
+                resp.inner
+            });
         });
+        changed
     }
 }
