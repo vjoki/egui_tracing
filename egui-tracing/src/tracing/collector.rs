@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use egui::mutex::{RwLock, RwLockReadGuard};
 use tracing::field::{Field, Visit};
+use tracing::level_filters::LevelFilter;
 use tracing::{span, Event, Level, Subscriber};
 #[cfg(feature = "log")]
 use tracing_log::NormalizeEvent;
@@ -11,19 +12,13 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
 use super::event::CollectedEvent;
+use super::level_filter::{AtomicLevelFilter, DynamicLevelFilter};
 
-#[derive(Clone, Debug)]
-pub enum AllowedTargets {
-    All,
-    Selected(Vec<String>),
-}
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct EventCollector {
-    allowed_targets: AllowedTargets,
-    level: Level,
     events: Arc<RwLock<VecDeque<CollectedEvent>>>,
     max_events: usize,
+    level: Arc<AtomicLevelFilter>,
 }
 
 impl EventCollector {
@@ -31,19 +26,17 @@ impl EventCollector {
         Self::default()
     }
 
-    pub fn with_level(self, level: Level) -> Self {
-        Self { level, ..self }
-    }
-
-    pub fn allowed_targets(self, allowed_targets: AllowedTargets) -> Self {
-        Self {
-            allowed_targets,
-            ..self
-        }
+    pub fn with_level(self, level: Option<Level>) -> Self {
+        Self { level: Arc::from(AtomicLevelFilter::from(LevelFilter::from(level))), ..self }
     }
 
     pub fn max_log_entries(self, max_events: usize) -> Self {
         Self { max_events, ..self }
+    }
+
+    pub fn with_level_filter<S: Subscriber + for<'a> LookupSpan<'a>>(self) -> tracing_subscriber::filter::Filtered<Self, DynamicLevelFilter, S> {
+        let level = self.level.clone();
+        self.with_filter(DynamicLevelFilter::new(level))
     }
 
     /// Use with care, will deadlock if held carelessly.
@@ -51,17 +44,10 @@ impl EventCollector {
         self.events.read()
     }
 
-    fn collect(&self, event: CollectedEvent) {
-        if event.level <= self.level {
-            let should_collect = match self.allowed_targets {
-                AllowedTargets::All => true,
-                AllowedTargets::Selected(ref selection) => selection
-                    .iter()
-                    .any(|target| event.target.starts_with(target)),
-            };
-            if should_collect {
-                self.events.lock().unwrap().push(event);
-            }
+    /// Set max filter level.
+    pub fn set_max_filter_level(&self, level: Option<Level>) {
+        if self.level.set_from_level(level) {
+            tracing_core::callsite::rebuild_interest_cache();
         }
     }
 
@@ -75,9 +61,8 @@ impl EventCollector {
 impl Default for EventCollector {
     fn default() -> Self {
         Self {
-            allowed_targets: AllowedTargets::All,
-            level: Level::TRACE, // capture everything by default.
             events: Default::default(),
+            level: Arc::from(AtomicLevelFilter::from(LevelFilter::INFO)),
             max_events: 10000,
         }
     }
@@ -87,6 +72,10 @@ impl<S> Layer<S> for EventCollector
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
+    fn max_level_hint(&self) -> Option<LevelFilter> {
+        Some(self.level.as_level_filter())
+    }
+
     fn on_new_span(&self, attrs: &span::Attributes<'_>, id: &span::Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id) {
             attrs.metadata().level();

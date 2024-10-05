@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use chrono::{DateTime, Local};
-use tracing::field::{Field, Visit};
-use tracing::{Event, Metadata};
+use tracing::Metadata;
 
 #[derive(Debug, Clone)]
 pub struct CollectedEvent {
