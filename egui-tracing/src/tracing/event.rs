@@ -14,23 +14,12 @@ pub struct CollectedEvent {
 }
 
 impl CollectedEvent {
-    pub fn new(event: &Event, meta: &Metadata) -> Self {
-        let mut fields = BTreeMap::new();
-        event.record(&mut FieldVisitor(&mut fields));
-
+    pub fn new(fields: BTreeMap<&'static str, String>, meta: &Metadata) -> Self {
         CollectedEvent {
             level: meta.level().to_owned(),
             time: Local::now(),
             target: meta.target().to_owned(),
             fields,
         }
-    }
-}
-
-struct FieldVisitor<'a>(&'a mut BTreeMap<&'static str, String>);
-
-impl<'a> Visit for FieldVisitor<'a> {
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0.insert(field.name(), format!("{:?}", value));
     }
 }
