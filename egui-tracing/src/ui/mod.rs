@@ -53,10 +53,10 @@ impl Widget for Logs {
             glob.build().unwrap()
         };
 
-        let events = self.collector.events();
-        let filtered_events = events
+        let filtered_events = self.collector.events()
             .iter()
             .filter(|event| state.level_filter.get(event.level) && !glob.is_match(&event.target))
+            .cloned()
             .collect::<Vec<_>>();
 
         let row_height = constants::SEPARATOR_SPACING

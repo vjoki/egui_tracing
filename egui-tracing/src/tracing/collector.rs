@@ -1,6 +1,7 @@
-use std::sync::{Arc, Mutex};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
+use std::sync::Arc;
 
+use egui::mutex::{RwLock, RwLockReadGuard};
 use tracing::field::{Field, Visit};
 use tracing::{span, Event, Level, Subscriber};
 #[cfg(feature = "log")]
@@ -21,7 +22,8 @@ pub enum AllowedTargets {
 pub struct EventCollector {
     allowed_targets: AllowedTargets,
     level: Level,
-    events: Arc<Mutex<Vec<CollectedEvent>>>,
+    events: Arc<RwLock<VecDeque<CollectedEvent>>>,
+    max_events: usize,
 }
 
 impl EventCollector {
@@ -40,13 +42,13 @@ impl EventCollector {
         }
     }
 
-    pub fn events(&self) -> Vec<CollectedEvent> {
-        self.events.lock().unwrap().clone()
+    pub fn max_log_entries(self, max_events: usize) -> Self {
+        Self { max_events, ..self }
     }
 
-    pub fn clear(&self) {
-        let mut events = self.events.lock().unwrap();
-        *events = Vec::new();
+    /// Use with care, will deadlock if held carelessly.
+    pub fn events<'a, 'b: 'a>(&'b self) -> RwLockReadGuard<'a, VecDeque<CollectedEvent>> {
+        self.events.read()
     }
 
     fn collect(&self, event: CollectedEvent) {
@@ -62,14 +64,21 @@ impl EventCollector {
             }
         }
     }
+
+    pub fn clear(&self) {
+        let mut events = self.events.write();
+        events.clear();
+        events.shrink_to_fit();
+    }
 }
 
 impl Default for EventCollector {
     fn default() -> Self {
         Self {
             allowed_targets: AllowedTargets::All,
-            events: Arc::new(Mutex::new(Vec::new())),
             level: Level::TRACE, // capture everything by default.
+            events: Default::default(),
+            max_events: 10000,
         }
     }
 }
@@ -118,7 +127,13 @@ where
         }
         event.record(&mut FieldVisitor(&mut fields));
 
-        self.collect(CollectedEvent::new(event, meta));
+        let mut events = self.events.write();
+        if events.len() >= self.max_events {
+            events.pop_front();
+        }
+        events.push_back(CollectedEvent::new(fields, meta));
+    }
+}
 
 struct SpanFieldStorage(BTreeMap<&'static str, String>);
 
