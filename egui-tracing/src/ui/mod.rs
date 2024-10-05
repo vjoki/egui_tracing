@@ -65,9 +65,13 @@ impl Logs {
                 TableHeader::default()
                     .common_props(CommonProps::new().min_width(80.0))
                     .children(|ui| {
-                        LevelMenuButton::default()
+                        let changed = LevelMenuButton::default()
                             .state(&mut self.state.borrow_mut().level_filter)
                             .show(ui);
+
+                        if changed {
+                            self.collector.set_max_filter_level(self.state.borrow().level_filter.max_level());
+                        }
                     })
                     .show(ui);
                 TableHeader::default()
