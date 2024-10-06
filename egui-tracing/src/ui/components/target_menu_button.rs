@@ -1,8 +1,7 @@
-use egui::Ui;
+use egui::{Label, TextWrapMode, Ui};
 use globset::Glob;
 
 use crate::ui::state::TargetFilter;
-use crate::string::Ellipse;
 
 #[derive(Default)]
 pub struct TargetMenuButton<'a> {
@@ -41,18 +40,13 @@ impl<'a> TargetMenuButton<'a> {
 
             state.targets.retain(|target| {
                 ui.separator();
-                let resp = ui.horizontal(|ui| {
-                    {
-                        let pattern = target.glob();
-                        ui.label(pattern.truncate_graphemes(18))
-                            .on_hover_text(pattern);
-                    }
-
-                    ui.add_space(ui.available_width() - 43.0);
-                    if ui.button("Delete").clicked() {
+                let resp = ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    let res = if ui.button("Delete").clicked() {
                         changed = true;
                         false
-                    } else { true }
+                    } else { true };
+                    ui.add(Label::new(target.glob()).wrap_mode(TextWrapMode::Truncate));
+                    res
                 });
                 resp.inner
             });

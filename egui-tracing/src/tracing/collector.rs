@@ -34,6 +34,10 @@ impl EventCollector {
         Self { max_events, ..self }
     }
 
+    pub const fn max_events(&self) -> usize {
+        self.max_events
+    }
+
     pub fn with_level_filter<S: Subscriber + for<'a> LookupSpan<'a>>(self) -> tracing_subscriber::filter::Filtered<Self, DynamicLevelFilter, S> {
         let level = self.level.clone();
         self.with_filter(DynamicLevelFilter::new(level))
