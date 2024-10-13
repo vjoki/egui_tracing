@@ -26,8 +26,8 @@ impl EventCollector {
         Self::default()
     }
 
-    pub fn with_level(self, level: Option<Level>) -> Self {
-        Self { level: Arc::from(AtomicLevelFilter::from(LevelFilter::from(level))), ..self }
+    pub fn with_level(self, level: LevelFilter) -> Self {
+        Self { level: Arc::from(AtomicLevelFilter::from(level)), ..self }
     }
 
     pub fn max_log_entries(self, max_events: usize) -> Self {
