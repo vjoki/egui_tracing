@@ -11,9 +11,16 @@ categories = ["gui", "game-development"]
 [features]
 default = ["log", "egui-default"]
 egui-default = ["egui/default"]
-log = ["tracing-log", "tracing-subscriber/tracing-log"]
+log = ["tracing-log", "tracing-subscriber/tracing-log", "dep:log"]
 wasmbind = ["chrono/wasmbind"]
 reexport = []
+
+release_max_level_off = ["tracing/release_max_level_off", "log?/release_max_level_off"]
+release_max_level_error = ["tracing/release_max_level_error", "log?/release_max_level_error"]
+release_max_level_warn = ["tracing/release_max_level_warn", "log?/release_max_level_warn"]
+release_max_level_info = ["tracing/release_max_level_info", "log?/release_max_level_info"]
+release_max_level_debug = ["tracing/release_max_level_debug", "log?/release_max_level_debug"]
+release_max_level_trace = ["tracing/release_max_level_trace", "log?/release_max_level_trace"]
 
 [dependencies]
 chrono = { version = "~0.4.38", default-features = false, features = ["clock"] }
@@ -24,5 +31,6 @@ serde = { version = "~1.0.210", default-features = false, features = ["derive"] 
 tracing = { version = "~0.1.40", default-features = false }
 tracing-core = { version = "~0.1.32", default-features = false }
 tracing-log = { version = "~0.2.0", optional = true, default-features = false }
+log = { version = "~0.4", optional = true, default-features = false }
 tracing-subscriber = { version = "~0.3.18", default-features = false, features = ["registry"] }
 unicode-segmentation = "~1.12"
